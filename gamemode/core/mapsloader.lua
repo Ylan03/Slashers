@@ -57,22 +57,25 @@ hook.Add("PostGamemodeLoaded","sls_mapsloadData",loadMapsData)
 if SERVER then
 
 	local function UseAbility(len, ply)
+		-- Only the killer of the current round can use the ability
+		if !GM.ROUND.Active or !IsValid(ply) or ply != GM.ROUND.Killer or !ply:Alive() then return end
+		if (ply.sls_nextAbility or 0) > CurTime() then return end
+		ply.sls_nextAbility = CurTime() + 0.3
 		GM.MAP.Killer:UseAbility( ply )
 	end
 	net.Receive("sls_mapsloader_UseAbility", UseAbility)
 
 else
 
+	-- Key bound to "+menu" (Q by default). Before: loop over 159 keys on every key press.
 	local function getMenuKey()
-		local cpt = 0
-		while input.LookupKeyBinding( cpt ) != "+menu" && cpt < 159 do
-			 cpt = cpt + 1
-		end
-		return  cpt
+		local bind = input.LookupBinding("+menu", true)
+		return bind and input.GetKeyCode(bind) or KEY_Q
 	end
 
 	local function PlayerButtonDown(ply, button)
 		if !IsFirstTimePredicted() then return end
+		if ply != LocalPlayer() then return end
 
 		if GM.ROUND.Active && ply:Team() == TEAM_KILLER && button == getMenuKey() then
 			net.Start("sls_mapsloader_useability")
