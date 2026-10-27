@@ -303,11 +303,23 @@ local function Think()
 		end
 	end
 
-	-- Check NextMap
-	if !GM.ROUND.Active && GM.ROUND.NextStart && curtime >= GM.ROUND.NextStart && GM.ROUND.Count >= GetConVar("slashers_round_max"):GetInt() && GM.CONFIG["disabled_modules"]["votemap"] then
-		local mapindex = table.KeyFromValue(GM.MAPS, game.GetMap())
-		GM.ROUND.NextStart = nil
-		RunConsoleCommand("changelevel", mapindex == #GM.MAPS and GM.MAPS[1] or GM.MAPS[mapindex + 1])
+	-- Next map, once the last round is over.
+	-- The votemap module answers with the hook "sls_round_GetNextMap" ("extend" or a map name),
+	-- otherwise we take the next map of the rotation.
+	if !GM.ROUND.Active && GM.ROUND.NextStart && curtime >= GM.ROUND.NextStart && GM.ROUND.Count >= GetConVar("slashers_round_max"):GetInt() then
+		local nextMap = hook.Run("sls_round_GetNextMap")
+		if nextMap == "extend" or #GM.MAPS == 0 then
+			GM.ROUND.Count = 0
+		else
+			if !nextMap or !table.HasValue(GM.MAPS, nextMap) then
+				local mapindex = table.KeyFromValue(GM.MAPS, game.GetMap()) or 0
+				nextMap = GM.MAPS[mapindex % #GM.MAPS + 1]
+			end
+			GM.ROUND.NextStart = nil
+			print("Map changed to " .. nextMap)
+			RunConsoleCommand("changelevel", nextMap)
+			return
+		end
 	end
 
 	-- Waiting Players
