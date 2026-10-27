@@ -88,7 +88,7 @@ if CLIENT then
 	local function AddDoor()
 		local pos, endtime
 		pos = net.ReadVector()
-	endtime = net.ReadInt(16)
+	endtime = net.ReadFloat()
 
 	table.insert(doors, {
 		pos = pos,
@@ -101,7 +101,8 @@ local function HUDPaintBackground()
 	if LocalPlayer():Team() != TEAM_KILLER then return end
 	local curtime = CurTime()
 
-	for k, v in ipairs(doors) do
+	for k = #doors, 1, -1 do
+		local v = doors[k]
 		if curtime > v.endtime then
 			table.remove(doors, k)
 			continue
@@ -135,7 +136,7 @@ else
 
 	net.Start("sls_kability_AddDoor")
 	net.WriteVector(pos)
-	net.WriteInt(endtime, 16)
+	net.WriteFloat(endtime)
 	net.Send(GM.ROUND.Killer)
 end
 

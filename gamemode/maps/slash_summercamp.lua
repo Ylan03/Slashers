@@ -72,29 +72,32 @@ if CLIENT then
 		ply = net.ReadEntity()
 		pos = net.ReadVector()
 		ang = net.ReadAngle()
-		endtime = net.ReadInt(16)
+		endtime = net.ReadFloat()
 
 		ang.p = 0
 		ang.r = 0
 
+		-- The survivor can be outside of the killer's PVS: the entity is then NULL
+		-- (before: "Tried to use a NULL entity" error)
 		local fpos = pos
-		if ply.LastFoot then
-			fpos = fpos + ang:Right() * 5
-		else
-			fpos = fpos + ang:Right() * -5
+		if IsValid(ply) then
+			if ply.LastFoot then
+				fpos = fpos + ang:Right() * 5
+			else
+				fpos = fpos + ang:Right() * -5
+			end
+			ply.LastFoot = !ply.LastFoot
 		end
-		ply.LastFoot = !ply.LastFoot
 
 		local trace = {}
 		trace.start = fpos
 		trace.endpos = trace.start + Vector(0, 0, -10)
-		trace.filter = ply
+		trace.filter = IsValid(ply) and ply or nil
 		local tr = util.TraceLine(trace)
 
 		if tr.Hit then
 			local tbl = {}
 			tbl.pos = tr.HitPos
-			tbl.foot = foot
 			tbl.endtime = endtime
 			tbl.angle = ang.y
 			tbl.normal = Vector(0, 0, 1)
@@ -109,7 +112,8 @@ if CLIENT then
 
 		cam.Start3D(pos, EyeAngles())
 			render.SetMaterial(ICON_STEP)
-			for k, v in ipairs(steps) do
+			for k = #steps, 1, -1 do
+				local v = steps[k]
 				if CurTime() > v.endtime then
 					table.remove(steps, k)
 					continue
@@ -141,7 +145,7 @@ else
 			net.WriteEntity(ply)
 			net.WriteVector(pos)
 			net.WriteAngle(ply:GetAimVector():Angle())
-			net.WriteInt(CurTime() + GetConVar("slashers_jason_step_duration"):GetFloat(), 16)
+			net.WriteFloat(CurTime() + GetConVar("slashers_jason_step_duration"):GetFloat())
 		net.Send(GM.ROUND.Killer)
 	end
 	hook.Add("PlayerFootstep", "sls_kability_PlayerFootstep", PlayerFootstep)

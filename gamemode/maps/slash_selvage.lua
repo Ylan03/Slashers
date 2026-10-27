@@ -97,7 +97,7 @@ if CLIENT then
 	local victimPos
 
 	local function updateMyersAbility()
-		local status = net.ReadInt(2)
+		local status = net.ReadUInt(2)
 		if status == 2 then
 			-- Available !
 		elseif status == 1 then
@@ -142,37 +142,48 @@ else
 	local VictimMyers
 	local Timer1 = 0
 
+	-- Random victim among alive survivors (Sydney / shy girl is immune)
 	local function findVictim()
+		local candidates = {}
 		for _, v in ipairs(GM.ROUND:GetSurvivorsAlive()) do
 			if v.ClassID != CLASS_SURV_SHY then
-				return v
+				table.insert(candidates, v)
 			end
 		end
+		if #candidates == 0 then return nil end
+		return candidates[math.random(#candidates)]
 	end
 
 	local lastRequestMyers = 0
 	local myersAbilityActivated = false
+	local abilityToken = 0 -- invalidates timers started during a previous round
+
+	local function SendStatus(ply, status)
+		if !IsValid(ply) then return end
+		net.Start("sls_kability_update_myersability")
+			net.WriteUInt(status, 2) -- before: WriteInt(2, 2) overflowed
+		net.Send(ply)
+	end
+
 	function GM.MAP.Killer:UseAbility( ply )
+		if !GM.ROUND.Active or ply != GM.ROUND.Killer then return end
 		if CurTime() - lastRequestMyers < GetConVar("slashers_myers_wallhack_cooldown"):GetFloat()  then
 			net.Start( "notificationSlasher" )
 				net.WriteTable({"killerhelp_cant_use_ability"})
 				net.WriteString("cross")
-				net.Send(ply)
+			net.Send(ply)
 			return
 		end
 		if myersAbilityActivated then return end
-		net.Start("sls_kability_update_myersability")
-		net.WriteInt(1,2)
-		net.Send(ply)
+		SendStatus(ply, 1)
 		myersAbilityActivated = true
-		timer.Simple(GetConVar("slashers_myers_wallhack_duration"):GetFloat(),function ()
-
+		local token = abilityToken
+		timer.Simple(GetConVar("slashers_myers_wallhack_duration"):GetFloat(), function()
+			if token != abilityToken then return end
 			myersAbilityActivated = false
 			lastRequestMyers = CurTime()
 			if !GM.ROUND.Active then return end
-			net.Start("sls_kability_update_myersability")
-			net.WriteInt(0,2)
-			net.Send(GM.ROUND.Killer)
+			SendStatus(GM.ROUND.Killer, 0)
 		end)
 	end
 
@@ -185,23 +196,15 @@ else
 		end
 
 		if Timer1 < curtime && IsValid(VictimMyers) && VictimMyers.ClassID != CLASS_SURV_SHY  then
+			net.Start("sls_kability_Wallhack")
 			if myersAbilityActivated then
-				net.Start("sls_kability_Wallhack")
-					net.WriteVector(VictimMyers:GetPos() + Vector(0, 0, 50))
-				net.Send(GM.ROUND.Killer)
+				net.WriteVector(VictimMyers:GetPos() + Vector(0, 0, 50))
 			else
-				net.Start("sls_kability_Wallhack")
-					net.WriteVector(Vector(42, 42, 42))
-				net.Send(GM.ROUND.Killer)
+				net.WriteVector(Vector(42, 42, 42))
 			end
+			net.Send(GM.ROUND.Killer)
 			Timer1 = curtime + 0.5
 		end
-		if  CurTime() - lastRequestMyers == GM.CONFIG["myers_cooldown"] then
-			net.Start("sls_kability_update_myersability") --Send a message if the ability is available again
-			net.WriteInt(2,2)
-			net.Send(GM.ROUND.Killer)
-		end
-
 	end
 	hook.Add("Think", "sls_kability_Think", Think)
 
@@ -217,20 +220,31 @@ else
 		end
 	end
 	hook.Add("PostPlayerDeath", "sls_kability_PostPlayerDeath", PostPlayerDeath)
+	hook.Add("PlayerDisconnected", "sls_kability_VictimDisconnected", function(ply)
+		if ply == VictimMyers then
+			timer.Simple(0, function() PostPlayerDeath(ply) end)
+		end
+	end)
+
+	local function resetAbility()
+		abilityToken = abilityToken + 1
+		myersAbilityActivated = false
+		lastRequestMyers = 0
+		VictimMyers = nil
+	end
 
 	local function PostStart()
-		if !GM.ROUND.Killer then return end
-
+		resetAbility()
+		if !IsValid(GM.ROUND.Killer) then return end
 		VictimMyers = findVictim()
 	end
 	hook.Add("sls_round_PostStart", "sls_kability_PostStart", PostStart)
 
+	-- Before: hook.Add(..., resetEnRound) -> typo, the reset never ran
 	local function resetEndRound()
-		myersAbilityActivated = false
-		lastRequestMyers = 0
-		net.Start("sls_kability_update_myersability")
-		net.WriteInt(0,2)
-		net.Send(GM.ROUND.Killer)
+		local killer = GM.ROUND.Killer
+		resetAbility()
+		SendStatus(killer, 0)
 	end
-	hook.Add("sls_round_End","sls_kreset_myersamility",resetEnRound)
+	hook.Add("sls_round_End", "sls_kreset_myersamility", resetEndRound)
 end
