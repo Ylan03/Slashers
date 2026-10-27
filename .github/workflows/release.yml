@@ -1,0 +1,45 @@
+name: Release
+
+# - Tag "v*" pushed  -> GitHub release with the ready-to-install zip
+# - Manual run        -> zip uploaded as a workflow artifact (to test a branch on the server)
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build addon zip (gamemodes/slashers/...)
+        id: build
+        run: |
+          name="slashers-${GITHUB_REF_NAME//\//-}"
+          mkdir -p dist/gamemodes/slashers
+          # git archive respects the export-ignore entries of .gitattributes
+          git archive --format=tar HEAD | tar -x -C dist/gamemodes/slashers
+          (cd dist && zip -qr "../${name}.zip" gamemodes)
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.build.outputs.name }}
+          path: ${{ steps.build.outputs.name }}.zip
+
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP: ${{ steps.build.outputs.name }}.zip
+        run: |
+          flags=(--title "Slashers $GITHUB_REF_NAME" --generate-notes)
+          # v1.3.0-hyltaria, v1.4.0-rc1... are published as pre-releases
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" "$ZIP" "${flags[@]}"
