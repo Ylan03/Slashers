@@ -22,21 +22,34 @@ sound.Add( {
 -----
 
 if SERVER then
-	util.AddNetworkString( "wantedSound" )
-	util.AddNetworkString( "stopSound" )
-	net.Receive( "wantedSound", function( len, ply )
-		local soundName = net.ReadString()
-		ply:EmitSound(soundName)
+	-- The client only tells the server "I start / stop breathing".
+	-- The sound name is fixed server side (before, any client could play any sound).
+	util.AddNetworkString( "sls_stamina_Breathing" )
+
+	net.Receive( "sls_stamina_Breathing", function( len, ply )
+		local state = net.ReadBool()
+		if !IsValid(ply) then return end
+
+		if state and ply:Alive() and ply:Team() == TEAM_SURVIVORS then
+			if !ply.sls_breathing then
+				ply:EmitSound("Breathing")
+				ply.sls_breathing = true
+			end
+		elseif ply.sls_breathing then
+			ply:StopSound("Breathing")
+			ply.sls_breathing = false
+		end
 	end )
 
-	net.Receive( "stopSound", function( len, ply )
-		local soundName = net.ReadString()
-		ply:StopSound(soundName)
-	end )
-
-
+	local function StopBreathing(ply)
+		if IsValid(ply) and ply.sls_breathing then
+			ply:StopSound("Breathing")
+			ply.sls_breathing = false
+		end
+	end
+	hook.Add("PlayerDeath", "sls_stamina_StopBreathing", StopBreathing)
+	hook.Add("PlayerSilentDeath", "sls_stamina_StopBreathingSilent", StopBreathing)
 end
-
 
 
 
@@ -47,116 +60,99 @@ if CLIENT then
 	local AlreadyJump = false
 	local AlreadyBreathing = false
 	local GM = GM or GAMEMODE
-	local scrW, scrH = ScrW(), ScrH()
+
+	-- Only sends a message when the state really changes (before: one message per frame)
+	local function SetBreathing(state)
+		if AlreadyBreathing == state then return end
+		AlreadyBreathing = state
+		net.Start("sls_stamina_Breathing")
+			net.WriteBool(state)
+		net.SendToServer()
+	end
+
+	local function RemoveButton(buttons, button)
+		return bit.band(buttons, bit.bnot(button))
+	end
+
+	local function IsMoving(cmd)
+		return cmd:KeyDown(IN_FORWARD) or cmd:KeyDown(IN_BACK) or cmd:KeyDown(IN_MOVELEFT) or cmd:KeyDown(IN_MOVERIGHT)
+	end
 
 	function GetClientMove(cmd)
+		local ply = LocalPlayer()
+		if !IsValid(ply) then return end
+		if !GAMEMODE.ROUND.Active || !IsValid(GAMEMODE.ROUND.Killer) || !GAMEMODE.ROUND.Survivors then return end
+		if !table.HasValue(GAMEMODE.ROUND.Survivors, ply) then return end
+
+		local class = GAMEMODE.CLASS.Survivors[ply.ClassID]
+		if !class or !ply.Stamina or !ply.MaxStamina then return end
+
 		local NewButtons = cmd:GetButtons()
 		local Change = FrameTime() * 5
 
-		local ply = LocalPlayer()
-		if !GAMEMODE.ROUND.Active || !IsValid(GAMEMODE.ROUND.Killer) || !GAMEMODE.ROUND.Survivors  then return end
-		if table.HasValue(GAMEMODE.ROUND.Survivors, ply )  then
-
-			if 	ply.Stamina >= 10 then
-				net.Start("stopSound")
-					net.WriteString("Breathing")
-				net.SendToServer()
-
-				-- ply:StopSound( "Breathing" )
-				AlreadyBreathing = false
-			end
-
-			if 	!ply:Alive() then
-				net.Start("stopSound")
-				net.WriteString("Breathing")
-				net.SendToServer()
-
-				ply.Stamina = 100
-				AlreadyBreathing = false
-			end
-
-			if cmd:KeyDown(IN_JUMP) and ply:OnGround() and !ply:InVehicle() then
-
-				if not AlreadyBreathing and ply.Stamina<=30 then
-
-					net.Start("wantedSound")
-					net.WriteString("Breathing")
-					net.SendToServer()
-					-- ply:EmitSound("Breathing")
-					AlreadyBreathing = true
-				end
-
-				if ply.Stamina <= 5 then
-					NewButtons = NewButtons - IN_JUMP
-				end
-
-				if not AlreadyJump and ply.Stamina >= 5  then
-					ply.Stamina = ply.Stamina - (ply.MaxStamina * 1/7)
-					-- print(ply.Stamina)
-				end
-				AlreadyJump = true
-
-			elseif not cmd:KeyDown(IN_JUMP) then
-
-				AlreadyJump = false
-
-			end
-
-			if cmd:KeyDown(IN_SPEED) and ( cmd:KeyDown(IN_FORWARD) or cmd:KeyDown(IN_BACK) or cmd:KeyDown(IN_MOVELEFT) or cmd:KeyDown(IN_MOVERIGHT) ) and (ply:GetVelocity():Length() > 100) and ( ply:OnGround() or ply:WaterLevel() ~= 0 ) and !ply:InVehicle() then
-
-				if ply.Stamina <= 0 then
-
-					NewButtons = NewButtons - IN_SPEED
-
-				else
-
-					ply.Stamina = math.Clamp(ply.Stamina - 2 * Change * ply.DecayMul,0,ply.MaxStamina)
-					ply.NextRegen = CurTime() + 2.25
-
-				end
-
-				if not AlreadyBreathing and ply.Stamina<=60 then
-
-					net.Start("wantedSound")
-					net.WriteString("Breathing")
-					net.SendToServer()
-					-- ply:EmitSound("Breathing")
-
-					AlreadyBreathing = true
-
-				end
-
-			end
-
-
-			if ply.NextRegen then
-				if ply.NextRegen < CurTime() then
-					if (cmd:KeyDown(IN_FORWARD) or cmd:KeyDown(IN_BACK) or cmd:KeyDown(IN_MOVELEFT) or cmd:KeyDown(IN_MOVERIGHT)) then
-							if GAMEMODE.CLASS.Survivors[ply.ClassID].name ~= "Sports" then
-								ply.Stamina = math.Clamp(ply.Stamina + ( Change * 0.5 * ply.RegenMul ) ,0,ply.MaxStamina)
-							else
-								ply.Stamina = math.Clamp(ply.Stamina + ( Change * 1.5 * ply.RegenMul ) ,0,ply.MaxStamina)
-							end
-					else
-						if GAMEMODE.CLASS.Survivors[ply.ClassID].name ~= "Sports" then
-							ply.Stamina = math.Clamp(ply.Stamina + ( Change * 1 * ply.RegenMul ) ,0,ply.MaxStamina)
-						else
-							ply.Stamina = math.Clamp(ply.Stamina + ( Change * 2 * ply.RegenMul ) ,0,ply.MaxStamina)
-						end
-					end
-				end
-			end
-			cmd:SetButtons(NewButtons)
+		if !ply:Alive() then
+			ply.Stamina = ply.MaxStamina
+			SetBreathing(false)
+			return
 		end
+
+		-- Breathing with hysteresis: starts under 40% of the stamina, stops above 75%
+		if ply.Stamina <= ply.MaxStamina * 0.4 then
+			SetBreathing(true)
+		elseif ply.Stamina >= ply.MaxStamina * 0.75 then
+			SetBreathing(false)
+		end
+
+		if cmd:KeyDown(IN_JUMP) and ply:OnGround() and !ply:InVehicle() then
+
+			if ply.Stamina <= 5 then
+				NewButtons = RemoveButton(NewButtons, IN_JUMP)
+			end
+
+			if not AlreadyJump and ply.Stamina >= 5 then
+				ply.Stamina = ply.Stamina - (ply.MaxStamina * 1/7)
+			end
+			AlreadyJump = true
+
+		elseif not cmd:KeyDown(IN_JUMP) then
+			AlreadyJump = false
+		end
+
+		if cmd:KeyDown(IN_SPEED) and IsMoving(cmd) and (ply:GetVelocity():Length() > 100) and ( ply:OnGround() or ply:WaterLevel() ~= 0 ) and !ply:InVehicle() then
+
+			if ply.Stamina <= 0 then
+				NewButtons = RemoveButton(NewButtons, IN_SPEED)
+			else
+				ply.Stamina = math.Clamp(ply.Stamina - 2 * Change * ply.DecayMul, 0, ply.MaxStamina)
+				ply.NextRegen = CurTime() + 2.25
+			end
+		end
+
+		if ply.NextRegen and ply.NextRegen < CurTime() then
+			local isSports = ply.ClassID == CLASS_SURV_SPORTS
+			local mul
+			if IsMoving(cmd) then
+				mul = isSports and 1.5 or 0.5
+			else
+				mul = isSports and 2 or 1
+			end
+			ply.Stamina = math.Clamp(ply.Stamina + ( Change * mul * ply.RegenMul ), 0, ply.MaxStamina)
+		end
+
+		cmd:SetButtons(NewButtons)
 	end
 
 	hook.Add("CreateMove"," Sprint",GetClientMove)
 
 	local function ResetStamina()
 		local ply = LocalPlayer()
-		if ply == GAMEMODE.ROUND.Killer then return end
-		ply.Stamina = GAMEMODE.CLASS.Survivors[ply.ClassID].stamina
-		ply.MaxStamina = GAMEMODE.CLASS.Survivors[ply.ClassID].stamina
+		AlreadyJump = false
+		SetBreathing(false)
+		if !IsValid(ply) or ply == GAMEMODE.ROUND.Killer then return end
+		local class = GAMEMODE.CLASS.Survivors[ply.ClassID]
+		if !class then return end
+		ply.Stamina = class.stamina
+		ply.MaxStamina = class.stamina
 		ply.DecayMul = 0.8
 		ply.RegenMul = 1.8
 
@@ -214,8 +210,9 @@ if CLIENT then
 	local function HUDPaint()
 		local ply = LocalPlayer()
 		local bwide
+		local scrW, scrH = ScrW(), ScrH()
 		if ply:Team() != TEAM_SURVIVORS || !ply:Alive() then return end
-		if !ply.ClassID || !GAMEMODE.ROUND.Active || !GAMEMODE.CLASS.Survivors[ply.ClassID].stamina then return end
+		if !ply.ClassID || !ply.Stamina || !GAMEMODE.ROUND.Active || !GAMEMODE.CLASS.Survivors[ply.ClassID] then return end
 		bwide = 256 * ply.Stamina / GAMEMODE.CLASS.Survivors[ply.ClassID].stamina
 		if ply.Stamina == GAMEMODE.CLASS.Survivors[ply.ClassID].stamina && alpha_stamina > 0 then
 			alpha_stamina = math.max(0, alpha_stamina - 4)
