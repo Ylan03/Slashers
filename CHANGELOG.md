@@ -12,6 +12,7 @@ Reprise du gamemode par Hyltaria (base : GitHub Ylan03/Slashers). Phase 1 : corr
 - Message réseau `sls_client_ready` : le serveur attend que le client soit chargé avant de lui envoyer la caméra, l'état de la manche, la liste des maps et la popup Workshop. Nouveau hook serveur `sls_PlayerReady(ply)`.
 - Hook serveur `sls_round_GetNextMap` (utilisé par le votemap, sinon rotation des maps).
 - Fonction partagée `SLS_IsInvisible(ply)` (variable réseau `sls_invisible`).
+- Contenu Workshop configurable dans `config.lua` : `workshop_download`, `workshop_addons`, `content_check_files`, `content_workshop_id`.
 
 ### Corrigé
 - **Crash possible sur slash_subway** : le hook `ShouldCollide` du Proxy changeait de résultat sans `CollisionRulesChanged()` ; un seul hook maintenant, basé sur une variable réseau.
@@ -37,6 +38,8 @@ Reprise du gamemode par Hyltaria (base : GitHub Ylan03/Slashers). Phase 1 : corr
 - Boucles `table.remove` dans `ipairs` (messages, notifications, portes Ghostface, traces de Jason).
 - HUD recalculé quand la résolution change ; touches `+use` / `+menu` lues avec `input.LookupBinding`.
 - Variables globales involontaires dans les notifications et objectifs.
+- slash_motel et le Season 2 Shared Map Content n'étaient pas envoyés aux joueurs (`resource.AddWorkshop`).
+- La fenêtre « contenu manquant » vérifie la présence réelle des fichiers (avant : l'abonnement aux items Utopia, donc affichée à tort avec une collection privée).
 
 ## [1.2.0] - 2018-08-06
 ### Added
