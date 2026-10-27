@@ -46,14 +46,18 @@ function ENT:SpawnFunction( ply, tr )
 
     return ent
 end
-ents.Create("prop_physics")
+-- (removed) ents.Create("prop_physics") at file load: created a ghost entity before the map
 
 function ENT:OnTakeDamage(dmg)
 
 end
 
 function ENT:Use(ply)
+	if !IsValid(ply) or !ply:IsPlayer() or !ply:Alive() then return end
+	if self:GetNWBool('activated') then return end
 	if CurrentObjective == "activate_radio" && ply:Team() == TEAM_SURVIVORS then
+		-- Before: "activated" was never set, the radio showed an error when used again
+		self:SetNWBool('activated', true)
 		net.Start( "notificationSlasher" )
 						net.WriteTable({"round_notif_police_call"})
 						net.WriteString("safe")
@@ -62,13 +66,13 @@ function ENT:Use(ply)
 		net.Start( "objectiveSlasher" )
 						 net.WriteTable({"round_notif_police"})
 						 net.WriteString("caution")
-						 net.SendOmit(GM.ROUND.Killer)
+		if IsValid(GM.ROUND.Killer) then net.SendOmit(GM.ROUND.Killer) else net.Broadcast() end
 
 		hook.Call("sls_NextObjective")
 		self.Active = true
 		self:EmitSound("slashers_radio")
-	else
-		if (!self:GetNWBool( 'activated')) then
+	elseif ply:Team() == TEAM_SURVIVORS then
+		do
 				net.Start( "notificationSlasher" )
 								net.WriteTable({"round_notif_error_radio"})
 								net.WriteString("cross")

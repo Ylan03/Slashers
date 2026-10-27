@@ -43,6 +43,7 @@ function ENT:Initialize()
 	self:SetSolid(SOLID_VPHYSICS)
 	self:SetNWFloat( 'progressBar', 0 )
 	self:SetNWBool( 'activated', false)
+	self:SetUseType( CONTINUOUS_USE )
 
 	local phys = self:GetPhysicsObject()
 	if phys:IsValid() then
@@ -64,23 +65,28 @@ function ENT:OnTakeDamage(dmg)
 
 end
 
+local CV_Duration = CreateConVar("slashers_generator_duration", 5, {FCVAR_ARCHIVE}, "Time (in seconds) a survivor must hold USE to start the generator.")
+
 function ENT:Use(activator, caller)
-	if CurrentObjective == "activate_generator" && caller:Team() == TEAM_SURVIVORS then
-		local tr = caller:GetEyeTrace()
-		self:SetUseType( CONTINUOUS_USE )
-		curentProgress = self:GetNWFloat('progressBar')
-		generatorNowActivated = self:GetNWEntity( "activated")
+	if !IsValid(caller) or !caller:IsPlayer() then return end
+	if self:GetNWBool('activated') then return end
 
-		if (curentProgress < 1 ) then
+	if CurrentObjective == "activate_generator" && caller:Team() == TEAM_SURVIVORS && caller:Alive() then
+		local curentProgress = self:GetNWFloat('progressBar')
 
-			self:SetNWFloat( 'progressBar', curentProgress+ 0.003)
+		-- Progress depends on time, not on the server tickrate any more
+		if curentProgress < 1 then
+			local step = engine.TickInterval() / math.max(CV_Duration:GetFloat(), 0.1)
+			curentProgress = math.min(curentProgress + step, 1)
+			self:SetNWFloat( 'progressBar', curentProgress)
 			net.Start( "activateProgressionSlasher" )
 			net.WriteFloat(curentProgress)
 			net.Send(caller)
 		end
 
-		if (curentProgress >= 1 && !generatorNowActivated) then
-
+		-- Before: GetNWEntity("activated") on a boolean returned NULL (always "true"),
+		-- so the generator could never be validated.
+		if curentProgress >= 1 then
 			self:SetNWBool( 'activated', true)
 			self:SetNWFloat( 'progressBar', 2)
 			self:EmitSound( "engine_sound", 75, 100, 1, CHAN_AUTO )
@@ -97,18 +103,22 @@ function ENT:Use(activator, caller)
 			net.Start( "objectiveSlasher" )
 			net.WriteTable({"round_mission_radio"})
 			net.WriteString("caution")
-			net.SendOmit(GM.ROUND.Killer)
+			if IsValid(GM.ROUND.Killer) then
+				net.SendOmit(GM.ROUND.Killer)
+			else
+				net.Broadcast()
+			end
 			self.Active = true
 			hook.Call("sls_NextObjective")
 		end
-	else
-		self:SetUseType( SIMPLE_USE )
-		if (!self:GetNWBool( 'activated')) then
-			net.Start( "notificationSlasher" )
-			net.WriteTable({"round_notif_error_generator"})
-			net.WriteString("cross")
-			net.Send(caller)
-		end
+	elseif caller:Team() == TEAM_SURVIVORS then
+		-- USE is continuous on this entity: avoid one notification per tick
+		if (caller.sls_nextGeneratorNotif or 0) > CurTime() then return end
+		caller.sls_nextGeneratorNotif = CurTime() + 2
+		net.Start( "notificationSlasher" )
+		net.WriteTable({"round_notif_error_generator"})
+		net.WriteString("cross")
+		net.Send(caller)
 	end
 end
 

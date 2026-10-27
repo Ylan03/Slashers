@@ -36,38 +36,39 @@ function ENT:SpawnFunction( ply, tr )
 
     return ent
 end
-ents.Create("prop_physics")
+-- (removed) ents.Create("prop_physics") at file load: created a ghost entity before the map
 
 function ENT:OnTakeDamage(dmg)
 
 end
 
 function ENT:Use(ply)
-	if (CurrentObjective == "find_jerrican" && ply:Team() == TEAM_SURVIVORS) then
-		if (NbJerricanToFound != 0) then
-			self:Remove()
-			NbJerricanToFound = NbJerricanToFound - 1
-			net.Start( "notificationSlasher" )
-							net.WriteTable({"round_mission_jerrycan_found"})
-							net.WriteString("safe")
-							net.Send(ply)
+	if self.sls_used then return end
+	if !IsValid(ply) or !ply:IsPlayer() or !ply:Alive() then return end
+	if CurrentObjective != "find_jerrican" or ply:Team() != TEAM_SURVIVORS then return end
+	if !NbJerricanToFound or NbJerricanToFound <= 0 then return end
 
+	self.sls_used = true
+	NbJerricanToFound = NbJerricanToFound - 1
 
-			net.Start( "modifyObjectiveSlasher" )
-						net.WriteTable({"round_mission_jerrycan", NbJerricanToFound})
-						net.SendOmit(GM.ROUND.Killer)
+	net.Start( "notificationSlasher" )
+		net.WriteTable({"round_mission_jerrycan_found"})
+		net.WriteString("safe")
+	net.Send(ply)
 
-		end
-		if (NbJerricanToFound == 0) then
-			net.Start( "objectiveSlasher" )
-							 net.WriteTable({"round_mission_generator"})
-							 net.WriteString("caution")
-							 net.SendOmit(GM.ROUND.Killer)
+	net.Start( "modifyObjectiveSlasher" )
+		net.WriteTable({"round_mission_jerrycan", NbJerricanToFound})
+	if IsValid(GM.ROUND.Killer) then net.SendOmit(GM.ROUND.Killer) else net.Broadcast() end
 
-			hook.Call("sls_NextObjective")
+	if NbJerricanToFound == 0 then
+		net.Start( "objectiveSlasher" )
+			net.WriteTable({"round_mission_generator"})
+			net.WriteString("caution")
+		if IsValid(GM.ROUND.Killer) then net.SendOmit(GM.ROUND.Killer) else net.Broadcast() end
 
-		end
-		self:EmitSound("player/shove_01.wav",100,100,1,CHAN_AUTO)
-		self:Remove()
+		hook.Call("sls_NextObjective")
 	end
+
+	ply:EmitSound("player/shove_01.wav", 100, 100, 1, CHAN_AUTO)
+	self:Remove()
 end
