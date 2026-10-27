@@ -100,12 +100,40 @@ function SWEP:PrimarySlash()
 
 end
 
-function SWEP:Holster()
-	SafeRemoveEntity(self.projectedLight)
-	self.Owner:SetNWEntity("FL_Flashlight", nil)
+function SWEP:RemoveLight()
+	if SERVER then
+		SafeRemoveEntity(self.projectedLight)
+		self.projectedLight = nil
+		-- Before: SetNWEntity(..., nil) -> error on recent GMod versions, NULL must be used
+		if IsValid(self.Owner) then
+			self.Owner:SetNWEntity("FL_Flashlight", NULL)
+		end
+	end
 	self.Active = false
+end
 
+function SWEP:Holster()
+	self:RemoveLight()
 	return true
+end
+
+-- The light was not removed when the weapon was stripped / the owner died
+function SWEP:OnRemove(...)
+	self:RemoveLight()
+	local base = baseclass.Get(self.Base)
+	if base and base.OnRemove then return base.OnRemove(self, ...) end
+end
+
+function SWEP:OnDrop(...)
+	self:RemoveLight()
+	local base = baseclass.Get(self.Base)
+	if base and base.OnDrop then return base.OnDrop(self, ...) end
+end
+
+function SWEP:OwnerChanged(...)
+	self:RemoveLight()
+	local base = baseclass.Get(self.Base)
+	if base and base.OwnerChanged then return base.OwnerChanged(self, ...) end
 end
 
 function SWEP:BuildLight()
@@ -130,7 +158,7 @@ function SWEP:BuildLight()
 end
 
 function SWEP:Think()
-	if SERVER && IsValid(self.projectedLight) then
+	if SERVER && IsValid(self.projectedLight) && IsValid(self.Owner) then
 		self.projectedLight:SetPos( self.Owner:EyePos() + self.Owner:GetAimVector() * 2 );
 		self.projectedLight:SetAngles( self.Owner:EyeAngles() );
 	end
@@ -141,7 +169,9 @@ local function UpdateFlashlight()
 	if IsValid( pjs ) then
 		if IsValid(LocalPlayer():GetActiveWeapon()) and LocalPlayer():GetActiveWeapon():GetClass() == "weapon_flashlight" then
 			local bid = LocalPlayer():GetViewModel():LookupBone( "Maglite" )
+			if !bid then return end
 			local bp, ba = LocalPlayer():GetViewModel():GetBonePosition( bid )
+			if !bp or !ba then return end
 			ba:RotateAroundAxis(ba:Up(), -90)
 			pjs:SetPos( bp +ba:Forward() * -3.5 );
 			pjs:SetAngles( ba );
@@ -158,6 +188,7 @@ function SWEP:CalcViewModelView( ent, oldPos, oldAng, pos, ang )
 		if IsValid( pjs ) then
 			local bid = LocalPlayer():GetViewModel():LookupAttachment("light")
 			local bp = LocalPlayer():GetViewModel():GetAttachment(bid)
+			if !bp then return end
 			local ang = bp.Ang
 			local pos = bp.Pos
 			--ba:RotateAroundAxis(ba:Up(), -90)

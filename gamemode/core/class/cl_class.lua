@@ -10,7 +10,10 @@ local scrw, scrh = ScrW(), ScrH()
 local ICON_CROSS = Material("icons/icon_cross.png")
 local ICON_SAFE = Material("icons/icon_safe.png")
 local ICON_KEYS = Material("icons/icon_keys.png")
-local FIRST
+
+hook.Add("OnScreenSizeChanged", "sls_class_ScreenSize", function()
+	scrw, scrh = ScrW(), ScrH()
+end)
 
 local function DrawHUDSurvivor()
 	surface.SetDrawColor(Color(255, 255, 255, 255))
@@ -28,11 +31,13 @@ end
 
 local function DrawHUDKiller()
 	surface.SetDrawColor(Color(255, 255, 255, 255))
-	surface.SetMaterial(GM.MAP.Killer.Icon)
-	surface.DrawTexturedRect(20, scrh - 84, 64, 64)
+	if GM.MAP.Killer.Icon then
+		surface.SetMaterial(GM.MAP.Killer.Icon)
+		surface.DrawTexturedRect(20, scrh - 84, 64, 64)
+	end
 
-	for k, v in ipairs(GM.ROUND.Survivors) do
-		if !GM.CLASS.Survivors[v.ClassID] then continue end
+	for k, v in ipairs(GM.ROUND.Survivors or {}) do
+		if !IsValid(v) or !GM.CLASS.Survivors[v.ClassID] then continue end
 
 		surface.SetMaterial(GM.CLASS.Survivors[v.ClassID].icon)
 		surface.DrawTexturedRect(scrw - ((64 + 20) * k), scrh - 84, 64, 64)
@@ -44,40 +49,22 @@ local function DrawHUDKiller()
 end
 
 local function HUDPaint()
-	if !IsValid(LocalPlayer()) then return end
+	local lp = LocalPlayer()
+	if !IsValid(lp) then return end
 	if !GM.ROUND.Active then return end
-	if !LocalPlayer().ClassID then return end
+	if !lp.ClassID then return end
 
-	if LocalPlayer():Team() == TEAM_SURVIVORS  && GM.CLASS.Survivors[LocalPlayer().ClassID] then
+	if lp:Team() == TEAM_SURVIVORS && GM.CLASS.Survivors[lp.ClassID] then
 		DrawHUDSurvivor()
-		if LocalPlayer().ClassID == CLASS_SURV_BLACK then
-			if FIRST then
-				GM.CLASS.Survivors[LocalPlayer().ClassID].keysNumber = 3
-				FIRST = false
+		if lp.ClassID == CLASS_SURV_BLACK then
+			-- The number of keys is read from the weapon (networked), not from a local counter
+			local keys = lp:GetWeapon("weapon_keys")
+			if IsValid(keys) and keys.GetKeysLeft then
+				DrawHUDBlack(keys:GetKeysLeft())
 			end
-			DrawHUDBlack(GAMEMODE.CLASS.Survivors[LocalPlayer().ClassID].keysNumber)
 		end
-	elseif LocalPlayer():Team() == TEAM_KILLER then
+	elseif lp:Team() == TEAM_KILLER then
 		DrawHUDKiller()
 	end
 end
 hook.Add("HUDPaint", "sls_class_HUDPaint", HUDPaint)
-
---- Show stuff on objective entity
-
-local function getUseKey()
-	local cpt = 0
-	while input.LookupKeyBinding( cpt ) != "+use" && cpt < 159 do
-		 cpt = cpt + 1
-	end
-
-	if cpt > KEY_Z then
-		if cpt == KEY_ENTER or cpt == KEY_PAD_ENTER then
-			return "L"
-		else
-			return ">"
-		end
-	else
-		return input.GetKeyName( cpt )
-	end
-end
