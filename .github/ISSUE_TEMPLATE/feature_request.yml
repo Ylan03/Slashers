@@ -1,0 +1,43 @@
+name: ✨ Fonctionnalité
+description: Proposer une nouvelle fonctionnalité ou une amélioration
+title: "[Feature] "
+labels: ["enhancement", "à trier"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Besoin
+      description: Quel problème ça résout, ou qu'est-ce que ça apporte aux joueurs / admins ?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposition
+      description: Comment tu imagines la fonctionnalité (comportement, interface, convars…).
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Domaine
+      multiple: true
+      options:
+        - Gameplay / manches
+        - Tueurs / capacités
+        - Survivants / classes
+        - Maps / objectifs
+        - Armes (TFA)
+        - Interface (HUD, menus)
+        - Administration / config
+        - Autre
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives envisagées
+  - type: checkboxes
+    id: config
+    attributes:
+      label: Configuration
+      options:
+        - label: Doit pouvoir être activé / désactivé ou réglé par convar
