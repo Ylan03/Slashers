@@ -109,24 +109,26 @@ if CLIENT then
 	end
 	hook.Add( "RenderScreenspaceEffects", "sls_kability_BinocDraw", InvisibleVision )
 
+	hook.Add("sls_round_PreStart", "sls_kability_ResetInvisibleClient", function()
+		PlyInvisible = false
+	end)
+
 	local TimerView = 0
 	local function CheckKillerInSight()
 		local v = team.GetPlayers(TEAM_KILLER)[1]
 		local curtime = CurTime()
 		local ply = LocalPlayer()
 
-		if !ply:Alive() or !v:IsValid() or !ply:IsLineOfSightClear( v ) or v == ply then return end
-
+		if !IsValid(ply) or !IsValid(v) or v == ply then return end
+		if !ply:Alive() or ply:Team() != TEAM_SURVIVORS or !ply:IsLineOfSightClear( v ) then return end
 
 		local TargetPosMax= v:GetPos()+ v:OBBMaxs() - Vector(10,0,0)
-		local TargetPosCenter = v:GetPos()+v:OBBCenter()
 		local TargetPosMin = v:GetPos()+ v:OBBMins() + Vector(10,0,0)
 
 		local ScreenPosMax = TargetPosMax:ToScreen()
-		local ScreenPosCenter = TargetPosCenter:ToScreen()
 		local ScreenPosMin = TargetPosMin:ToScreen()
 
-		posPlayer = ply:GetPos()
+		local posPlayer = ply:GetPos()
 		if ( TimerView < curtime) and (posPlayer:Distance( v:GetPos()) < 150) then
 				net.Start( "sls_kability_survivorseekiller" )
 					net.WriteFloat( curtime )
@@ -172,8 +174,6 @@ else
 
 	local KInvisible = Color(255,255,255,0)
 	local KNormal = Color(255,255,255,255)
-	local InitialSpawnK = false
-	--local keyPressed = false
 	local KillerInView
 	local LastKillerInView = 0
 
@@ -191,13 +191,48 @@ else
 	hook.Add("Think","sls_kability_UpdateKillerInView",CandisapearV2)
 
 
-	function ResponsePlayerSeeKiller()
-		LastKillerInView = net.ReadFloat()
+	-- Only alive survivors can report that they see the killer (anti-exploit)
+	net.Receive("sls_kability_survivorseekiller", function(len, ply)
+		if !GM.ROUND.Active or !IsValid(ply) or !ply:Alive() or ply:Team() != TEAM_SURVIVORS then return end
+		LastKillerInView = CurTime()
+	end)
+
+	local function SetInvisible(ply, state)
+		if !IsValid(ply) then return end
+		ply.InvisibleActive = state
+		ply:SetNWBool("sls_invisible", state)
+		ply:CollisionRulesChanged()
+
+		if state then
+			ply:SetColor(KInvisible)
+			ply:SetRenderMode(RENDERMODE_NONE)
+			ply:DrawShadow(false)
+			ply:AddEffects(EF_NOSHADOW)
+			ply:SetWalkSpeed(400)
+			ply:SetRunSpeed(400)
+			ply:CrosshairDisable()
+		else
+			ply:SetColor(KNormal)
+			ply:SetRenderMode(RENDERMODE_TRANSALPHA)
+			ply:DrawShadow(true)
+			ply:RemoveEffects(EF_NOSHADOW)
+			ply:SetWalkSpeed(GM.MAP.Killer.WalkSpeed)
+			ply:SetRunSpeed(GM.MAP.Killer.RunSpeed)
+			ply:CrosshairEnable()
+		end
+
+		net.Start("sls_kability_Invisible")
+			net.WriteBool(state)
+		net.Send(ply)
 	end
-	net.Receive("sls_kability_survivorseekiller", ResponsePlayerSeeKiller)
+
+	local function CanStillUseAbility(ply)
+		return IsValid(ply) and GM.ROUND.Active and ply == GM.ROUND.Killer and ply:Alive()
+	end
 
 	function GM.MAP.Killer:UseAbility(ply)
-		local PlayerWeapon = ply:GetActiveWeapon()
+		if !CanStillUseAbility(ply) or ply.ProxyTransition then return end
+
 		if KillerInView then
 			net.Start( "notificationSlasher" )
 				net.WriteTable({"killerhelp_cant_use_ability"})
@@ -206,72 +241,70 @@ else
 			return
 		end
 
-		if !ply.InvisibleActive  and !KillerInView then
+		ply.ProxyTransition = true
 
+		if !ply.InvisibleActive then
 			ply:EmitSound( "slashers/effects/proxy_power_on.wav" )
 
 			timer.Simple( 0.6, function ()
+				if !IsValid(ply) then return end
+				ply.ProxyTransition = false
+				if !CanStillUseAbility(ply) then return end
 
-				ply:SetColor(KInvisible )
-				ply:SetWalkSpeed( 400 )
-				ply:SetRunSpeed(400)
-				ply:StripWeapon(PlayerWeapon:GetClass())
-
-				ply:SetRenderMode(RENDERMODE_NONE )
-				ply:DrawShadow( false )
-				ply:AddEffects(EF_NOSHADOW)
-				ply.InvisibleActive = true
-				ply:CrosshairDisable()
-
-				net.Start("sls_kability_Invisible")
-						net.WriteBool(true)
-				net.Send(ply)
-
+				local wep = ply:GetActiveWeapon()
+				if IsValid(wep) then
+					ply.ProxyHiddenWeapon = wep:GetClass()
+					ply:StripWeapon(wep:GetClass())
+				end
+				SetInvisible(ply, true)
 			end)
-
-		elseif ply.InvisibleActive and !KillerInView  then
+		else
 			ply:EmitSound( "slashers/effects/proxy_power_off.wav" )
 
 			timer.Simple( 1, function ()
-			--	ply:AddKey( IN_ATTACK )
-			--	ply:AddKey( IN_ZOOM )
-				ply:Give(ply.InitialWeapon)
-				ply:SetColor( KNormal )
-				ply:SetRunSpeed( 400 )
-				ply:DrawShadow( true )
-				ply:SetWalkSpeed(GM.MAP.Killer.WalkSpeed)
-				ply:SetRunSpeed(GM.MAP.Killer.RunSpeed)
-				ply:SetRenderMode(RENDERMODE_TRANSALPHA )
+				if !IsValid(ply) then return end
+				ply.ProxyTransition = false
+				if !CanStillUseAbility(ply) then return end
 
-				ply.InvisibleActive = false
-
-				net.Start("sls_kability_Invisible")
-					net.WriteBool(false)
-				net.Send(ply)
-
+				local wepClass = ply.ProxyHiddenWeapon or ply.InitialWeapon
+				if wepClass and !ply:HasWeapon(wepClass) then
+					ply:Give(wepClass)
+				end
+				ply.ProxyHiddenWeapon = nil
+				SetInvisible(ply, false)
 			end)
 		end
 	end
 
+	-- Make a player visible again (without touching speeds of survivors)
+	local function ResetPlayerVisibility(v)
+		if !IsValid(v) then return end
+		v.ProxyTransition = false
+		v.ProxyHiddenWeapon = nil
+		if v.InvisibleActive or v:GetNWBool("sls_invisible", false) then
+			v.InvisibleActive = false
+			v:SetNWBool("sls_invisible", false)
+			v:CollisionRulesChanged()
+			v:CrosshairEnable()
+			net.Start("sls_kability_Invisible")
+				net.WriteBool(false)
+			net.Send(v)
+		end
+		v:SetRenderMode(RENDERMODE_TRANSALPHA)
+		v:SetColor(KNormal)
+		v:DrawShadow(true)
+		v:RemoveEffects(EF_NOSHADOW)
+	end
 
 	local function ResetVisibility()
-	for k,v in pairs(player.GetAll()) do
-		v:DrawShadow( true )
-		if IsValid(GAMEMODE.CLASS.Killers) and GM.ROUND.Killer:Team() == TEAM_KILLER then
-			v:SetWalkSpeed(GAMEMODE.CLASS.Killers[CLASS_KILL_PROXY].walkspeed)
-			v:SetRunSpeed(GAMEMODE.CLASS.Killers[CLASS_KILL_PROXY].walkspeed)
-			GM.ROUND.Killer.InvisibleActive = false
+		for _, v in ipairs(player.GetAll()) do
+			ResetPlayerVisibility(v)
 		end
-		v:SetRenderMode(RENDERMODE_TRANSALPHA )
-		v:SetColor(Color(255,255,255))
 	end
-	if (!GAMEMODE.ROUND.Killer) then return end
-		net.Start("sls_kability_Invisible")
-			net.WriteBool(false)
-		net.Send(GAMEMODE.ROUND.Killer)
-	end
-hook.Add("PostPlayerDeath","sls_kability_ResetViewKiller",ResetVisibility)
-hook.Add("sls_round_PostStart","sls_kability_ResetViewKillerAfterEnd",ResetVisibility)
+	hook.Add("PostPlayerDeath", "sls_kability_ResetViewKiller", ResetPlayerVisibility)
+	hook.Add("sls_round_PreStart", "sls_kability_ResetViewPreStart", ResetVisibility)
+	hook.Add("sls_round_PostStart", "sls_kability_ResetViewKillerAfterEnd", ResetVisibility)
+	hook.Add("sls_round_End", "sls_kability_ResetViewEnd", ResetVisibility)
 
 local timerSend = 0
 local function sendPosWhenInvisible()
@@ -302,28 +335,3 @@ local function sendPosWhenInvisible()
 end
 hook.Add("Think","sls_sendposkillerwheninvisible",sendPosWhenInvisible)
 end
-
-local function initCol()
-	local allentities = ents.GetAll()
-	for k, v in pairs(allentities) do
-		if (v:IsPlayer()) or (v:GetClass() == "prop_door_rotating") then
-			v:SetCustomCollisionCheck( true )
-		end
-	end
-end
-hook.Add( "InitPostEntity", "sls_kability_CustomInit", initCol)
-hook.Add("sls_round_PostStart","sls_kability_TestInit", initCol)
-
-
-local function ShouldCollide( ent1, ent2 )
-	if ent1:IsPlayer() and ent1:GetColor().a == 0 and  ent2:GetClass() == "prop_door_rotating" or
-		ent2:IsPlayer() and ent2:GetColor().a == 0 and  ent1:GetClass() == "prop_door_rotating" then
-		return false
-	end
-	if ent1:IsPlayer() and ent1:GetColor().a == 0 or
-		ent2:IsPlayer() and ent2:GetColor().a == 0 then
-		return false
-	end
-	return true
-end
-hook.Add("ShouldCollide", "sls_kability_ShouldCollide", ShouldCollide)
