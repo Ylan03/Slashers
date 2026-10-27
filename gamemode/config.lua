@@ -44,3 +44,27 @@ GM.CONFIG["killerhelp_exit_entities"] = {
 	"door_exit_3",
 	"door_exit_4"
 }
+
+-- Contenu Workshop
+-- Addons envoyés aux joueurs avec resource.AddWorkshop.
+-- Mettre "workshop_download" à false si le serveur fournit déjà le contenu
+-- par sa propre collection Workshop (host_workshop_collection) ou un content privé.
+GM.CONFIG["workshop_download"] = true
+GM.CONFIG["workshop_addons"] = {
+	"788009163",  -- Utopia Games - Slashers content 1
+	"857992903",  -- Utopia Games - Slashers content 2
+	"1247351614", -- Slashers Season 2 Shared Map Content (requis par slash_motel)
+	"787790694",  -- slash_highschool
+	"787938932",  -- slash_summercamp
+	"798554357",  -- slash_selvage
+	"858049276",  -- slash_subway
+	"1091061063", -- slash_lodge
+	"1247285424", -- slash_motel
+}
+-- Fichiers vérifiés côté client : s'il en manque un, une fenêtre prévient le joueur
+GM.CONFIG["content_check_files"] = {
+	"models/steinman/slashers/sport_pm.mdl", -- content 1
+	"models/steinman/slashers/bates_pm.mdl", -- content 2
+}
+-- Page Workshop ouverte par cette fenêtre ("" = pas de bouton)
+GM.CONFIG["content_workshop_id"] = "788009163"

@@ -2,26 +2,32 @@
 --
 -- @Author: Guilhem PECH
 -- @Date:   2017-07-26T18:34:04+02:00
--- @Last Modified by:   Garrus2142
--- @Last Modified time: 2017-07-27 01:37:04
+-- @Last Modified by:   Hyltaria
+-- @Last Modified time: 2026-10-27
+--
+-- Warns the player when the Slashers content is missing.
+-- Before: the popup checked the subscription to the Utopia Games items, so it was
+-- shown to everybody on a server that provides the content with its own collection.
+-- Now the files are checked directly (list in config.lua).
 
-
-
-local WorkShopAddonIDList = {"788009163","857992903"}
-
-function WorkshopDownloadCheck()
-	local AlreadyDownloaded = true
-	for k, v in pairs(WorkShopAddonIDList) do
-		if !steamworks.IsSubscribed(v) then
-			AlreadyDownloaded = false
+local function IsContentMissing()
+	for _, path in ipairs(GAMEMODE.CONFIG["content_check_files"] or {}) do
+		if !file.Exists(path, "GAME") then
+			return true
 		end
 	end
-	if AlreadyDownloaded then return end
-	local MainFrame = vgui.Create( "DFrame" )
-	MainFrame:Center()
+	return false
+end
+
+local MainFrame
+
+local function OpenContentPopup()
+	if IsValid(MainFrame) then MainFrame:Remove() end
+
+	MainFrame = vgui.Create( "DFrame" )
 	MainFrame:SetSize( 300, 75 )
+	MainFrame:Center()
 	MainFrame:SetTitle( "Steam Workshop" )
-	MainFrame:SetVisible( true )
 	MainFrame:SetDraggable( true )
 	MainFrame:ShowCloseButton( true )
 	MainFrame:MakePopup()
@@ -31,14 +37,17 @@ function WorkshopDownloadCheck()
 	InstructionLabel:SetText( GAMEMODE.LANG:GetString("workshop_need_content") )
 	InstructionLabel:SizeToContents()
 
-	local WSButton = vgui.Create( "DButton", MainFrame )
-	WSButton:SetText( GAMEMODE.LANG:GetString("workshop_get_it") )
-	WSButton:SetTextColor( Color( 0, 0, 0 ) )
-	WSButton:SetPos( 5, 40 )
-	WSButton:SetSize( 100, 30 )
-	WSButton.DoClick = function()
-		steamworks.ViewFile("1090847479") --set your workshop content url here, or your FastDL link.
-		MainFrame:Close()
+	local workshopID = GAMEMODE.CONFIG["content_workshop_id"] or ""
+	if workshopID != "" then
+		local WSButton = vgui.Create( "DButton", MainFrame )
+		WSButton:SetText( GAMEMODE.LANG:GetString("workshop_get_it") )
+		WSButton:SetTextColor( Color( 0, 0, 0 ) )
+		WSButton:SetPos( 5, 40 )
+		WSButton:SetSize( 100, 30 )
+		WSButton.DoClick = function()
+			steamworks.ViewFile(workshopID)
+			MainFrame:Close()
+		end
 	end
 
 	local CloseButton = vgui.Create( "DButton", MainFrame )
@@ -50,5 +59,13 @@ function WorkshopDownloadCheck()
 		MainFrame:Close()
 	end
 end
-concommand.Add("OpenWSDL", WorkshopDownloadCheck)
-net.Receive("slash_WorkShopCheck",WorkshopDownloadCheck)
+
+function WorkshopDownloadCheck()
+	if IsContentMissing() then
+		OpenContentPopup()
+	end
+end
+
+-- Console command kept for debugging: always opens the popup
+concommand.Add("OpenWSDL", OpenContentPopup)
+net.Receive("slash_WorkShopCheck", WorkshopDownloadCheck)
