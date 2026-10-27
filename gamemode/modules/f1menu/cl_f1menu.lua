@@ -119,6 +119,9 @@ net.Receive( "sls_f1_menu", function ()
 	local TeamText = " "
 	local ImageCharac =  "materials/characteres/default.png"
 	local CharacName = " "
+	local CharacText = " "
+	local lp = LocalPlayer()
+	local survClass = GM.CLASS.Survivors[lp.ClassID]
 
 	if timed then return end
 
@@ -127,7 +130,7 @@ net.Receive( "sls_f1_menu", function ()
 		return
 	end
 
-	if LocalPlayer():Team() == 2 then
+	if lp:Team() == TEAM_SURVIVORS and survClass then
 
 		TeamName = GM.LANG:GetString("round_team_name_survivor")
 		TeamText = GM.LANG:GetString("round_team_desc_survivor")
@@ -135,7 +138,7 @@ net.Receive( "sls_f1_menu", function ()
 		CharacName = GM.CLASS.Survivors[LocalPlayer().ClassID].dispname
 		CharacText = GM.CLASS.Survivors[LocalPlayer().ClassID].description
 
-	elseif LocalPlayer():Team() == 1 then
+	elseif lp:Team() == TEAM_KILLER and GM.MAP.Killer.Name then
 		TeamName = GM.LANG:GetString("round_team_name_killer")
 		TeamText = GM.LANG:GetString("round_team_desc_killer")
 		ImageCharac = "materials/characteres/"..string.lower(GAMEMODE.MAP.Killer.Name)..".png"

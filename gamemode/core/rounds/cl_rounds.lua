@@ -7,6 +7,9 @@
 
 local GM = GM or GAMEMODE
 local scrw, scrh = ScrW(), ScrH()
+hook.Add("OnScreenSizeChanged", "sls_round_ScreenSize", function()
+	scrw, scrh = ScrW(), ScrH()
+end)
 
 local function HUDPaint()
 	local curtime = CurTime()
@@ -51,15 +54,17 @@ local function PostStart()
 		local ImageCharac
 		local CharacName
 		local CharacText
-		if LocalPlayer():Team() == 1001 then return end
-		if LocalPlayer():Team() == TEAM_SURVIVORS then
+		local lp = LocalPlayer()
+		if !IsValid(lp) then return end
+		if lp:Team() == TEAM_SURVIVORS then
+			if !GAMEMODE.CLASS.Survivors[lp.ClassID] then return end
 
 			TeamName = GM.LANG:GetString("round_team_name_survivor")
 			TeamText = GM.LANG:GetString("round_team_desc_survivor")
 			ImageCharac = "materials/characteres/"..string.lower(GAMEMODE.CLASS.Survivors[LocalPlayer().ClassID].name)..".png"
 			CharacName = GAMEMODE.CLASS.Survivors[LocalPlayer().ClassID].dispname
 			CharacText = GAMEMODE.CLASS.Survivors[LocalPlayer().ClassID].description
-		elseif LocalPlayer():Team() == TEAM_KILLER then
+		elseif lp:Team() == TEAM_KILLER and GAMEMODE.MAP.Killer.Name then
 			TeamName = GM.LANG:GetString("round_team_name_killer")
 			TeamText = GM.LANG:GetString("round_team_desc_killer")
 			ImageCharac = "materials/characteres/"..string.lower(GAMEMODE.MAP.Killer.Name)..".png"

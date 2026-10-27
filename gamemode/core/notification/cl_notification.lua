@@ -23,10 +23,10 @@ concommand.Add( "Notice", function(a,b,c,argStr)
 
 function notificationPanel(notifText,notificationType)
 
-	-- Type differenciation
-	Type = notificationType..".png"
-	if (notificationType ) then
-		iconPath = "materials/icons/icon_"..Type
+	-- Type differenciation (before: concatenation done before the nil check)
+	local iconPath
+	if notificationType and notificationType != "" then
+		iconPath = "materials/icons/icon_" .. notificationType .. ".png"
 	else
 		iconPath = "materials/icons/icon_caution.png"
 	end
@@ -66,8 +66,8 @@ function notificationPanel(notifText,notificationType)
 
 	---
 
-	ToThisPosUp = BackGroundPanel.y - (CounterActiveNotif * 100)
-	ToThisPosDown = BackGroundPanel.y + (CounterActiveNotif * 100)
+	local ToThisPosUp = BackGroundPanel.y - (CounterActiveNotif * 100)
+	local ToThisPosDown = BackGroundPanel.y + (CounterActiveNotif * 100)
 
 	-- Animation
 	BackGroundPanel:MoveTo( BackGroundPanel.x, ToThisPosUp, 1, 0) -- Slide up
@@ -97,7 +97,8 @@ end)
 
 hook.Add("HUDPaint", "notification_HUDPaint", function()
 
-	for k, v in ipairs(noticonData) do
+	for k = #noticonData, 1, -1 do
+		local v = noticonData[k]
 		local pos1 = v.pos:ToScreen()
 		surface.SetDrawColor(Color(255, 255, 255))
 		surface.SetMaterial(v.icon)

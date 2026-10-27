@@ -6,6 +6,9 @@
 -- @Last Modified time: 2017-07-26T18:26:03+02:00
 
 local scrW, scrH = ScrW(), ScrH()
+hook.Add("OnScreenSizeChanged", "sls_cl_observer_ScreenSize", function()
+	scrW, scrH = ScrW(), ScrH()
+end)
 
 local function HUDPaint()
 	local target = LocalPlayer():GetObserverTarget()

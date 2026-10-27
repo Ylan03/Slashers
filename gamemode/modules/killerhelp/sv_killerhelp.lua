@@ -45,14 +45,11 @@ local function ExitAppear()
 	-- prop_car_*
 
 	local Escape = FindNearestEntity("door_exit*",ButtonPos,9000)
-	if (Escape == nil ) then
+	if !IsValid(Escape) then
 		Escape = FindNearestEntity("prop_car_*",ButtonPos,9000)
-		EscapePos = Escape:GetPos()
-
-	else
-		EscapePos = Escape:GetPos()
-
 	end
+	if !IsValid(Escape) then return end
+	EscapePos = Escape:GetPos()
 
 	AddExit(Vector(EscapePos))
 
@@ -79,7 +76,7 @@ local function Think()
 				v.kh_lastpos = v:GetPos()
 				v:SetNWBool("killerhelp_camp", false)
 
-			elseif curtime > v.kh_camptime + CAMP_DELAY && !v:GetNWBool("killerhelp_camp") && GAMEMODE.CLASS.Survivors[v.ClassID].name != "Emo" then
+			elseif curtime > v.kh_camptime + CAMP_DELAY && !v:GetNWBool("killerhelp_camp") && v.ClassID != CLASS_SURV_EMO then
 				-- Camp
 				v:SetNWBool("killerhelp_camp", true)
 			end

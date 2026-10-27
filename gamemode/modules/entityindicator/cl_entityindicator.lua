@@ -8,10 +8,8 @@
 --- Show stuff on objective entity
 
 local function getUseKey()
-	local cpt = 0
-	while input.LookupKeyBinding( cpt ) != "+use" && cpt < 159 do
-		 cpt = cpt + 1
-	end
+	local bind = input.LookupBinding("+use", true)
+	local cpt = bind and input.GetKeyCode(bind) or KEY_E
 
 	if cpt > KEY_Z then
 		if cpt == KEY_ENTER or cpt == KEY_PAD_ENTER then
@@ -24,8 +22,14 @@ local function getUseKey()
 	end
 end
 
-local usekey = getUseKey()
+-- Computed at draw time (before: once at load, the binding was sometimes not available yet)
+local usekey = "E"
+local nextKeyCheck = 0
 function DrawIndicator(ent)
+	if nextKeyCheck < CurTime() then
+		nextKeyCheck = CurTime() + 5
+		usekey = getUseKey() or "E"
+	end
 
 
 	local name = string.Explode( " ", ent.PrintName )[1]

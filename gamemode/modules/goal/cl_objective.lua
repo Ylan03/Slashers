@@ -102,9 +102,9 @@ ObjectiveAlreadySet = true
 
 
 -- Type differenciation
-Type = objType..".png"
-if (objType ) then
-	iconPath = "materials/icons/icon_"..Type
+local iconPath
+if objType and objType != "" then
+	iconPath = "materials/icons/icon_" .. objType .. ".png"
 else
 	iconPath = "materials/icons/icon_caution.png"
 end
@@ -142,7 +142,7 @@ end
 
 	---
 
-	ToThisPosUp = OBJPanel.y +  180
+	local ToThisPosUp = OBJPanel.y +  180
 
 
 	-- Animation coming

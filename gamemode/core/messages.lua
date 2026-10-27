@@ -6,6 +6,9 @@
 -- @Last Modified time: 2017-07-26 14:47:38
 
 local scrW, scrH = ScrW(), ScrH()
+hook.Add("OnScreenSizeChanged", "sls_messages_ScreenSize", function()
+	scrW, scrH = ScrW(), ScrH()
+end)
 local msg_print = {}
 local msg_printfade = {}
 messages = {}
@@ -13,7 +16,9 @@ messages = {}
 local function HUDPaint()
 	local curtime = CurTime()
 	-- Print
-	for k, v in ipairs(msg_print) do
+	-- Reverse loops: table.remove inside ipairs skipped the next message
+	for k = #msg_print, 1, -1 do
+		local v = msg_print[k]
 		if v.endtime < curtime then
 			table.remove(msg_print, k)
 			continue
@@ -27,7 +32,8 @@ local function HUDPaint()
 	end
 
 	-- PrintFade
-	for k, v in ipairs(msg_printfade) do
+	for k = #msg_printfade, 1, -1 do
+		local v = msg_printfade[k]
 		if v.endtime < curtime then
 			table.remove(msg_printfade, k)
 			continue
@@ -63,7 +69,7 @@ end
 function messages.Print(msg, delay, color, font)
 	table.insert(msg_print, {
 		msg = msg,
-		ypos = ypos,
+		ypos = ScrH() / 2, -- before: global "ypos" (nil)
 		endtime = CurTime() + delay,
 		color = color,
 		font = font

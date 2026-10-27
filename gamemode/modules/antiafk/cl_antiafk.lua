@@ -7,6 +7,9 @@
 
 local GM = GM or GAMEMODE
 local scrW, scrH = ScrW(), ScrH()
+hook.Add("OnScreenSizeChanged", "sls_cl_antiafk_ScreenSize", function()
+	scrW, scrH = ScrW(), ScrH()
+end)
 
 surface.CreateFont("Arial Big", {
 	font = "Arial",
