@@ -11,7 +11,7 @@ local function SpectatePlayer(ply, target)
 	if !IsValid(target) then return end
 	ply:Spectate(OBS_MODE_CHASE)
 	ply:SpectateEntity(target)
-	ply:SetParent(target)
+	-- (removed) ply:SetParent(target): parenting a player to another player causes view bugs
 	ply:SetPos(target:GetPos())
 end
 
@@ -22,7 +22,7 @@ local function SpectateNext(ply)
 	local indice
 
 	for _, v in ipairs(GM.ROUND.Survivors) do
-		if v:Alive() then
+		if IsValid(v) and v:Alive() then
 			table.insert(survivorsAlive, v)
 		end
 	end
@@ -44,7 +44,7 @@ local function SpectatePrev(ply)
 	local indice
 
 	for _, v in ipairs(GM.ROUND.Survivors) do
-		if v:Alive() then
+		if IsValid(v) and v:Alive() then
 			table.insert(survivorsAlive, v)
 		end
 	end
@@ -65,8 +65,8 @@ local function PlayerDeath( ply )
 		if !IsValid(ply) then return end
 		if ply:Team() != TEAM_SURVIVORS then return end
 
-		for _,v in pairs(GM.ROUND.Survivors) do
-			if v:Alive() then
+		for _,v in ipairs(GM.ROUND.Survivors) do
+			if IsValid(v) and v:Alive() then
 				SpectatePlayer(ply, v)
 				break
 			end
@@ -113,21 +113,23 @@ local function KeyPress( ply, key )
 end
 hook.Add("KeyPress", "sls_observer_KeyPress", KeyPress)
 
-local function PlayerInitialSpawn(ply)
-	timer.Simple(15, function()
-		if IsValid(ply) && !ply:Alive() && GM.ROUND.Active then
-			for _, v in ipairs(GM.ROUND.Survivors) do
-				if v:Alive() then
-					net.Start("sls_round_Camera")
-						net.WriteBool(false)
-					net.Broadcast()
-					SpectatePlayer(ply, v)
-				end
+-- A player who joins during a round spectates an alive survivor.
+-- Before: the camera was disabled for EVERYBODY (net.Broadcast) and the loop did not stop.
+local function PlayerReady(ply)
+	timer.Simple(5, function()
+		if !IsValid(ply) or ply:Alive() or !GM.ROUND.Active then return end
+		for _, v in ipairs(GM.ROUND.Survivors) do
+			if IsValid(v) and v:Alive() then
+				net.Start("sls_round_Camera")
+					net.WriteBool(false)
+				net.Send(ply)
+				SpectatePlayer(ply, v)
+				break
 			end
 		end
 	end)
 end
-hook.Add("PlayerInitialSpawn", "sls_round_PlayerInitialSpawn", PlayerInitialSpawn)
+hook.Add("sls_PlayerReady", "sls_round_PlayerInitialSpawn", PlayerReady)
 
 
 local function DeadChat(rext,teamOnly,listener,speaker)

@@ -20,6 +20,7 @@ util.AddNetworkString("sls_round_PlayerConnect")
 util.AddNetworkString("sls_round_SetupCamera")
 util.AddNetworkString("sls_round_Camera")
 util.AddNetworkString("sls_round_UpdateEndTime")
+util.AddNetworkString("sls_client_ready")
 
 function GM.ROUND:ViewInitCam(enable)
 	GM.ROUND.CameraEnable = enable
@@ -29,7 +30,7 @@ function GM.ROUND:ViewInitCam(enable)
 
 	if enable then
 		for _, v in ipairs(player.GetAll()) do
-			if IsValid(v) then
+			if IsValid(v) and GM.ROUND.CameraPos then
 				v:SetPos(GM.ROUND.CameraPos)
 			end
 		end
@@ -111,7 +112,7 @@ function GM.ROUND:Start(forceKiller)
 	hook.Run("sls_round_PostStart")
 	net.Start("sls_round_PostStart")
 		net.WriteInt(GM.ROUND.Count, 16)
-		net.WriteInt(GM.ROUND.EndTime, 16)
+		net.WriteFloat(GM.ROUND.EndTime)
 		net.WriteTable(GM.ROUND.Survivors)
 		net.WriteEntity(GM.ROUND.Killer)
 		net.WriteTable(GM.CLASS:GetClassIDTable())
@@ -140,7 +141,7 @@ function GM.ROUND:StartWaitingPolice()
 
 	hook.Run("sls_round_StartWaitingPolice")
 	net.Start("sls_round_StartWaitingPolice")
-		net.WriteInt(GM.ROUND.EndTime, 16)
+		net.WriteFloat(GM.ROUND.EndTime)
 	net.Broadcast()
 end
 
@@ -152,11 +153,15 @@ function GM.ROUND:StartEscape()
 
 	-- Button escape
 	GM.ROUND.EscapeButton = table.Random(ents.FindByName("button_escape"))
-	GM.ROUND.EscapeButton:Fire("Press")
+	if IsValid(GM.ROUND.EscapeButton) then
+		GM.ROUND.EscapeButton:Fire("Press")
+	else
+		print("[Slashers] WARNING: no button_escape entity on this map.")
+	end
 
 	hook.Run("sls_round_StartEscape")
 	net.Start("sls_round_StartEscape")
-		net.WriteInt(GM.ROUND.EndTime, 16)
+		net.WriteFloat(GM.ROUND.EndTime)
 	net.Broadcast()
 end
 
@@ -209,46 +214,64 @@ end
 function GM.ROUND:UpdateEndTime(endtime)
 	GM.ROUND.EndTime = endtime
 	net.Start("sls_round_UpdateEndTime")
-		net.WriteInt(GM.ROUND.EndTime, 16)
+		net.WriteFloat(GM.ROUND.EndTime)
 	net.Broadcast()
 end
 
 function GM:PlayerSpawn(ply)
 	if !ply.initialKill then
-		local camera = ents.FindByName("camera_view")[1]
-
 		ply:KillSilent()
 		ply.initialKill = true
+		if GM.ROUND.CameraPos then
+			ply:SetPos(GM.ROUND.CameraPos)
+		end
+	end
+end
 
+-- Data for a player who just joined.
+-- Before, it was sent in PlayerSpawn, when the client Lua is not always loaded yet
+-- (messages lost -> wrong camera, empty votemap...). The client now says when it is ready.
+local function PlayerReady(len, ply)
+	if !IsValid(ply) or ply.sls_ready then return end
+	ply.sls_ready = true
+
+	if GM.ROUND.CameraPos then
 		net.Start("sls_round_SetupCamera")
 			net.WriteVector(GM.ROUND.CameraPos)
 			net.WriteAngle(GM.ROUND.CameraAng)
 		net.Send(ply)
-		ply:SetPos(GM.ROUND.CameraPos)
-
-		-- Send data
-		if GM.ROUND.Active then
-			net.Start("sls_round_PlayerConnect")
-				net.WriteInt(GM.ROUND.Count, 16)
-				net.WriteInt(GM.ROUND.EndTime, 16)
-				net.WriteTable(GM.ROUND.Survivors)
-				net.WriteEntity(GM.ROUND.Killer)
-				net.WriteBool(GM.ROUND.WaitingPlayers)
-				net.WriteBool(GM.ROUND.WaitingPolice)
-				net.WriteBool(GM.ROUND.Escape)
-				net.WriteTable(GM.CLASS:GetClassIDTable())
-			net.Send(ply)
-		end
 	end
+
+	if GM.ROUND.Active then
+		net.Start("sls_round_PlayerConnect")
+			net.WriteInt(GM.ROUND.Count, 16)
+			net.WriteFloat(GM.ROUND.EndTime or 0)
+			net.WriteTable(GM.ROUND.Survivors or {})
+			net.WriteEntity(GM.ROUND.Killer or NULL)
+			net.WriteBool(GM.ROUND.WaitingPlayers)
+			net.WriteBool(GM.ROUND.WaitingPolice)
+			net.WriteBool(GM.ROUND.Escape)
+			net.WriteTable(GM.CLASS:GetClassIDTable())
+		net.Send(ply)
+	else
+		net.Start("sls_round_WaitingPlayers")
+			net.WriteBool(GM.ROUND.WaitingPlayers and true or false)
+		net.Send(ply)
+	end
+
+	hook.Run("sls_PlayerReady", ply)
 end
+net.Receive("sls_client_ready", PlayerReady)
 
 local function PlayerDK(ply)
 	if !GM.ROUND.Active then return end
 	if #GM.ROUND:GetSurvivorsAlive() == 0 then
 		GM.ROUND:End()
+		return
 	end
-	if ply:Team() == TEAM_KILLER then
+	if IsValid(ply) and ply == GM.ROUND.Killer then
 		GM.ROUND:End(true)
+		return
 	end
 
 	print("left survivors: ", #GM.ROUND:GetSurvivorsAlive())
@@ -338,7 +361,15 @@ local function InitPostEntity()
 
 	-- Get Cam pos
 	local camera = ents.FindByName("camera_view")[1]
-	GM.ROUND.CameraPos = camera:GetPos()
-	GM.ROUND.CameraAng = camera:GetAngles()
+	if IsValid(camera) then
+		GM.ROUND.CameraPos = camera:GetPos()
+		GM.ROUND.CameraAng = camera:GetAngles()
+	else
+		-- Map without "camera_view": fallback on a spawn point
+		local spawn = ents.FindByClass("info_player_counterterrorist")[1] or ents.FindByClass("info_player_start")[1]
+		GM.ROUND.CameraPos = IsValid(spawn) and spawn:GetPos() + Vector(0, 0, 64) or Vector(0, 0, 0)
+		GM.ROUND.CameraAng = IsValid(spawn) and spawn:GetAngles() or Angle(0, 0, 0)
+		print("[Slashers] WARNING: no camera_view entity on this map.")
+	end
 end
 hook.Add("InitPostEntity", "sls_round_InitPostEntity", InitPostEntity)

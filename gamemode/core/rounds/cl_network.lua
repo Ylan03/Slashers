@@ -18,7 +18,7 @@ net.Receive("sls_round_PreStart", PreStart)
 local function PostStart()
 	GM.ROUND.Active = true
 	GM.ROUND.Count = net.ReadInt(16)
-	GM.ROUND.EndTime = net.ReadInt(16)
+	GM.ROUND.EndTime = net.ReadFloat()
 	GM.ROUND.Survivors = net.ReadTable()
 	GM.ROUND.Killer = net.ReadEntity()
 	for _, v in ipairs(net.ReadTable()) do
@@ -30,7 +30,7 @@ net.Receive("sls_round_PostStart", PostStart)
 
 local function StartWaitingPolice()
 	GM.ROUND.WaitingPolice = true
-	GM.ROUND.EndTime = net.ReadInt(16)
+	GM.ROUND.EndTime = net.ReadFloat()
 	hook.Run("sls_round_StartWaitingPolice")
 end
 net.Receive("sls_round_StartWaitingPolice", StartWaitingPolice)
@@ -38,7 +38,7 @@ net.Receive("sls_round_StartWaitingPolice", StartWaitingPolice)
 local function StartEscape()
 	GM.ROUND.WaitingPolice = false
 	GM.ROUND.Escape = true
-	GM.ROUND.EndTime = net.ReadInt(16)
+	GM.ROUND.EndTime = net.ReadFloat()
 	hook.Run("sls_round_StartEscape")
 end
 net.Receive("sls_round_StartEscape", StartEscape)
@@ -79,7 +79,7 @@ net.Receive("sls_round_Update", Update)
 local function PlayerConnect()
 	GM.ROUND.Active = true
 	GM.ROUND.Count = net.ReadInt(16)
-	GM.ROUND.EndTime = net.ReadInt(16)
+	GM.ROUND.EndTime = net.ReadFloat()
 	GM.ROUND.Survivors = net.ReadTable()
 	GM.ROUND.Killer = net.ReadEntity()
 	GM.ROUND.WaitingPlayers = net.ReadBool()
@@ -104,7 +104,7 @@ end
 net.Receive("sls_round_Camera", Camera)
 
 local function UpdateEndTime()
-	GM.ROUND.EndTime = net.ReadInt(16)
+	GM.ROUND.EndTime = net.ReadFloat()
 	hook.Run("sls_round_UpdateEndTime")
 end
-net.Receive("sls_round_UpdateEndTime", UpdateEndTime)
+net.Receive("sls_round_UpdateEndTime", UpdateEndTime)

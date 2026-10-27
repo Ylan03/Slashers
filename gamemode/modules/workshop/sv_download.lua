@@ -7,8 +7,10 @@
 
 
 util.AddNetworkString( "slash_WorkShopCheck" )
-function WSDLCheckOpen(ply)
-    net.Start("slash_WorkShopCheck")
+
+-- Sent once the client is ready (before: PlayerInitialSpawn, message often lost)
+local function WSDLCheckOpen(ply)
+	net.Start("slash_WorkShopCheck")
 	net.Send(ply)
 end
-hook.Add("PlayerInitialSpawn", "WSDLCheckOpen", WSDLCheckOpen)
+hook.Add("sls_PlayerReady", "WSDLCheckOpen", WSDLCheckOpen)

@@ -39,3 +39,9 @@ end
 function GM:DrawDeathNotice(x, y)
 
 end
+
+-- Tell the server that the client Lua is loaded and ready to receive data
+hook.Add("InitPostEntity", "sls_client_ready", function()
+	net.Start("sls_client_ready")
+	net.SendToServer()
+end)
