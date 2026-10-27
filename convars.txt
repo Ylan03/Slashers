@@ -41,3 +41,7 @@
 "slashers_lang_default" = "en"
  game replicated server_can_execute lua_server
  - Set default language of gamemode.
+
+"slashers_generator_duration" = "5"
+ game archive
+ - Time (in seconds) a survivor must hold USE to start the generator.
