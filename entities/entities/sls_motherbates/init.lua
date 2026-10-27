@@ -15,7 +15,7 @@ include('shared.lua')
 
 util.AddNetworkString("sls_motherradar")
 
-function endMusic(victim)
+local function endMusic(victim)
 	net.Start("sls_motherradar",true)
 		net.WriteUInt(0,2)
 	net.Send(victim)
@@ -62,10 +62,11 @@ function ENT:SpawnFunction( ply, tr )
 
     return ent
 end
-ents.Create("prop_physics")
+-- (removed) ents.Create("prop_physics") at file load: created a ghost entity before the map
 
 
-function sendInfo (ply,DistSqr)
+local howFar
+local function sendInfo (ply,DistSqr)
 	if(!IsValid(ply)) then return end
 	net.Start("sls_motherradar",true)
 		net.WriteUInt(howFar (DistSqr),2)
@@ -97,7 +98,7 @@ function ENT:FindAroundPlayers(radius)
 	return plyNearby
 end
 
-function ApplyModifications(ply,pos)
+local function ApplyModifications(ply,pos)
 	if(!IsValid(ply)) then return end
 	if (!ply.normWalk) then ply.normWalk = ply:GetWalkSpeed() end
 
@@ -137,15 +138,19 @@ function ENT:OnTakeDamage(dmg)
 end
 
 function ENT:Use( activator, caller )
-	if ( activator:IsPlayer() && activator ~= GM.ROUND.Killer && !GM.ROUND.WaitingPolice) then
+	if !GM.ROUND.Active or GM.ROUND.Escape then return end
+	if ( IsValid(activator) && activator:IsPlayer() && activator:Alive() && activator:Team() == TEAM_SURVIVORS && !GM.ROUND.WaitingPolice) then
 		CurrentObjective = "wainting_police"
 		objectifComplete()
 		GM.ROUND:StartWaitingPolice()
 	end
 end
 
+-- Before: "if self:IsPlayer()" (never true) -> the killer kept his bonus speed
 function ENT:OnRemove()
-	if self:IsPlayer() then
-		self:GetOwner():SetWalkSpeed(ply.normWalk)
+	local killer = GM.ROUND and GM.ROUND.Killer
+	if IsValid(killer) and killer.normWalk then
+		killer:SetWalkSpeed(killer.normWalk)
+		killer:SetRunSpeed(killer.normWalk)
 	end
 end

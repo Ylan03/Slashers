@@ -29,29 +29,25 @@ end
 
 function ENT:Think()
 	local status = 0
-	if not GM.ROUND.Active then return end
+	if not GM.ROUND.Active or not IsValid(GM.ROUND.Killer) then return end
 	if (timer + 0.5) < CurTime() then
 		timer = CurTime()
 
 		proximityPlayers = getDistanceNearestPlayer(ents.FindInSphere(self:GetPos(), radiusFar or 500), self:GetPos())
 
 		if not proximityPlayers then
-			print("Not")
 			GM.ROUND.Killer:SetWalkSpeed( GM.MAP.Killer.WalkSpeed  )
 			GM.ROUND.Killer:SetRunSpeed(GM.MAP.Killer.RunSpeed )
 			status = 0
 		elseif proximityPlayers <= radiusClose then
-			print("Supplosed =", GM.MAP.Killer.WalkSpeed * 1.8)
 			GM.ROUND.Killer:SetWalkSpeed( GM.MAP.Killer.WalkSpeed * 1.8 )
 			GM.ROUND.Killer:SetRunSpeed(GM.MAP.Killer.RunSpeed * 1.8)
 			status = 3
 		elseif proximityPlayers <= radiusMedium then
-			print("Supplosed =", GM.MAP.Killer.WalkSpeed * 1.3)
 			GM.ROUND.Killer:SetWalkSpeed( GM.MAP.Killer.WalkSpeed * 1.3 )
 			GM.ROUND.Killer:SetRunSpeed(GM.MAP.Killer.RunSpeed * 1.3)
 			status = 2
 		else
-			print("Supplosed =", GM.MAP.Killer.WalkSpeed * 1.1)
 			GM.ROUND.Killer:SetWalkSpeed( GM.MAP.Killer.WalkSpeed * 1.1 )
 			GM.ROUND.Killer:SetRunSpeed(GM.MAP.Killer.RunSpeed * 1.1)
 			status = 1
@@ -63,7 +59,8 @@ function ENT:Think()
 	end
 end
 
-local ragdoll = ents.Create("prop_ragdoll")
+-- (old, unused entity) the ragdoll is now created in ENT:Initialize, not at file load
+local ragdoll
 
 function ENT:Initialize()
 	if ConVarExists("slashers_bates_far_radius") and  ConVarExists("slashers_bates_medium_radius") and  ConVarExists("slashers_bates_close_radius") then
@@ -81,7 +78,7 @@ function ENT:Initialize()
 	end
 	ragdoll:SetModel("models/skeleton/skeleton_whole_noskins.mdl")
 	ragdoll:PhysicsInit(SOLID_VPHYSICS)
-	ragdoll:GetPhysicsObject():EnableDrag(true)
+	if IsValid(ragdoll:GetPhysicsObject()) then ragdoll:GetPhysicsObject():EnableDrag(true) end
 	ragdoll:SetPos(self:GetPos())
 	self:SetParent(ragdoll)
 	ragdoll:Spawn()

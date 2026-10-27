@@ -9,13 +9,15 @@ local GM = GM or GAMEMODE
 
 local function CreateDebris(door, model, delay, aimvec)
 	local debris = ents.Create("prop_physics_multiplayer")
+	if !IsValid(debris) then return end
 
 	debris:SetModel(model)
 	debris:SetAngles(door:GetAngles())
 	debris:SetPos(door:GetPos())
 	debris:SetCollisionGroup(COLLISION_GROUP_DEBRIS)
 	debris:Spawn()
-	debris:GetPhysicsObject():SetVelocity(aimvec * 200)
+	local phys = debris:GetPhysicsObject()
+	if IsValid(phys) then phys:SetVelocity(aimvec * 200) end
 	constraint.NoCollide(debris, door, 0, 0)
 	SafeRemoveEntityDelayed(debris, delay)
 end
@@ -45,8 +47,7 @@ end
 
 local function WoodenState4(ent, aimvec)
 	ent:SetModel("models/props_doors/doormain_rural01_small_01.mdl")
-	ent:PhysicsInitConvex(wood1)
-	ent:EnableCustomCollisions(true)
+	-- (removed) PhysicsInitConvex(wood1): "wood1" never existed -> Lua error
 
 	CreateDebris(ent, "models/props_doors/doormain_rural01_small_02.mdl", 6, aimvec)
 end
@@ -181,4 +182,4 @@ hook.Add("EntityTakeDamage", "breakdoors_EntityTakeDamage",
 			ent.breakdoors_callback(ent, dmg)
 		end 
 	end
-)
+)

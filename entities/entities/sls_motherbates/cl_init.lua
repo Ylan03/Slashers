@@ -26,6 +26,7 @@ function ENT:Draw()
 	self.Entity:DrawModel()
 end
 
+local ICON_MOTHER = Material("icons/icon_mother.png")
 local function HUDPaintBackground()
 	if LocalPlayer():Team() != TEAM_KILLER || !GM.ROUND.Active || !IsValid(GM.MommyEntity) then return end
 	
@@ -42,10 +43,11 @@ local function HUDPaintBackground()
 	end
 
 	surface.SetDrawColor(color)
-	surface.SetMaterial(Material("icons/icon_mother.png"))
+	surface.SetMaterial(ICON_MOTHER)
 	surface.DrawTexturedRect(pos.x - 50, pos.y -100, 64, 64)
 end
-hook.Add("HUDPaintBackground", "sls_kability_HUDPaintBackground", HUDPaintBackground)
+-- Own hook name: before it had the same name as the Ghostface / Myers HUD hooks and overwrote them
+hook.Add("HUDPaintBackground", "sls_motherbates_HUDPaintBackground", HUDPaintBackground)
 
 function ENT:DrawTranslucent()
 	if LocalPlayer():IsLineOfSightClear( self.Entity ) and self.Entity:GetPos():Distance( LocalPlayer():GetPos()) < 150 and  LocalPlayer():Team() != TEAM_KILLER   then
