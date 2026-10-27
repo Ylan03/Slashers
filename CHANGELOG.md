@@ -14,6 +14,9 @@ Reprise du gamemode par Hyltaria (base : GitHub Ylan03/Slashers). Phase 1 : corr
 - Fonction partagée `SLS_IsInvisible(ply)` (variable réseau `sls_invisible`).
 - Contenu Workshop configurable dans `config.lua` : `workshop_download`, `workshop_addons`, `content_check_files`, `content_workshop_id`.
 
+### Supprimé
+- Module `shop` : message de don à chaque fin de manche et F4 vers le site d'Utopia Games, qui n'existe plus.
+
 ### Corrigé
 - **Crash possible sur slash_subway** : le hook `ShouldCollide` du Proxy changeait de résultat sans `CollisionRulesChanged()` ; un seul hook maintenant, basé sur une variable réseau.
 - **Endurance** : un message réseau était envoyé à chaque frame ; le serveur jouait n'importe quel son demandé par un client. Respiration gérée côté serveur avec hystérésis.
