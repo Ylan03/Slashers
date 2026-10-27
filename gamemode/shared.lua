@@ -7,8 +7,8 @@
 
 GM.Name = "Slashers";
 GM.Author = "Garrus2142";
-GM.Version = "1.1.0"
-GM.Github = "https://github.com/Garrus2142/Slashers/"
+GM.Version = "1.3.0-hyltaria"
+GM.Github = "https://github.com/Ylan03/Slashers/"
 GM.Workshop = "http://steamcommunity.com/sharedfiles/filedetails/?id=1092007703"
 
 TEAM_KILLER = 1;
