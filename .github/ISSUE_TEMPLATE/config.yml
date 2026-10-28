@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 Guide de contribution
+    url: https://github.com/Ylan03/Slashers/blob/master/CONTRIBUTING.md
+    about: Branches, commits, PR et tests avant de proposer une modification.

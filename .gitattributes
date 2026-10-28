@@ -1,0 +1,7 @@
+# Files excluded from the release zip (git archive).
+# No "text"/"eol" attribute on purpose: line endings are normalized in a dedicated PR.
+/.github            export-ignore
+/.gitattributes     export-ignore
+/.editorconfig      export-ignore
+/.glualint.json     export-ignore
+/CONTRIBUTING.md    export-ignore

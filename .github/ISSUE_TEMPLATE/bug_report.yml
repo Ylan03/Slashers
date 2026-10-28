@@ -1,0 +1,68 @@
+name: 🐛 Bug
+description: Signaler un bug du gamemode (erreur Lua, crash, gameplay cassé…)
+title: "[Bug] "
+labels: ["bug", "à trier"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de remplir un maximum d'infos : un bug reproductible est un bug corrigé rapidement.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Que se passe-t-il ? Qu'est-ce qui devrait se passer à la place ?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Étapes pour reproduire
+      placeholder: |
+        1. Lancer slash_subway avec 4 joueurs
+        2. Être le Proxy, utiliser la capacité (Q)
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: map
+    attributes:
+      label: Map
+      multiple: true
+      options:
+        - slash_highschool (Ghostface)
+        - slash_summercamp (Jason)
+        - slash_selvage (Michael Myers)
+        - slash_subway (Proxy)
+        - slash_lodge (Intruder)
+        - slash_motel (Norman Bates)
+        - Toutes / pas lié à une map
+    validations:
+      required: true
+  - type: dropdown
+    id: realm
+    attributes:
+      label: Côté
+      options:
+        - Serveur
+        - Client
+        - Les deux / je ne sais pas
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Erreurs console / logs
+      description: Copie ici les erreurs Lua (console serveur ou client). Elles seront mises en forme automatiquement.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Version du gamemode (affichée au démarrage du serveur) ou hash du commit.
+      placeholder: 1.3.0-hyltaria
+  - type: textarea
+    id: addons
+    attributes:
+      label: Autres addons installés
+      description: Liste des addons serveur pouvant interagir (admin mod, TFA, etc.).
